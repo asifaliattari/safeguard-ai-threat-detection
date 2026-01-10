@@ -16,6 +16,9 @@ import cv2
 import numpy as np
 import asyncio
 from app.models.yolo_detector import get_detector
+from app.core.llm_diagnosis import get_diagnoser
+from app.alerts.email_sender import get_email_sender
+from app.db.database import get_db_client
 
 # Load environment variables
 load_dotenv()
@@ -145,10 +148,51 @@ async def websocket_detect_endpoint(websocket: WebSocket, user_id: str):
             # Run detection (every frame for MVP)
             detections = det.detect(frame, confidence=0.4)
 
-            # Only send if we have detections
+            # Process detections with full pipeline
             if len(detections) > 0:
                 print(f"🎯 Detected {len(detections)} objects for {user_id}")
-                await manager.send_detection(user_id, detections)
+
+                # Get diagnoser and database client
+                diagnoser = get_diagnoser()
+                db = get_db_client()
+                email_sender = get_email_sender()
+
+                # Process each detection
+                enriched_detections = []
+                for detection in detections:
+                    # Get Claude diagnosis for high-confidence or dangerous detections
+                    if detection['confidence'] > 0.5:
+                        diagnosis = await diagnoser.diagnose(detection, frame)
+
+                        # Add diagnosis to detection
+                        detection['llm_diagnosis'] = diagnosis['message']
+                        detection['severity'] = diagnosis['severity']
+
+                        # Save to database
+                        await db.save_detection(
+                            user_id=user_id,
+                            detection_type=detection['type'],
+                            confidence=detection['confidence'],
+                            bbox=detection['bbox'],
+                            severity=diagnosis['severity'],
+                            llm_diagnosis=diagnosis['message']
+                        )
+
+                        # Send email alert for critical/high severity
+                        if diagnosis['should_alert'] and email_sender.enabled:
+                            # Get user email (for MVP, use env var)
+                            user_email = os.getenv("ALERT_EMAIL", "your-email@example.com")
+                            if user_email != "your-email@example.com":
+                                await email_sender.send_detection_alert(
+                                    to_email=user_email,
+                                    detection=detection,
+                                    diagnosis=diagnosis
+                                )
+
+                    enriched_detections.append(detection)
+
+                # Send detections to frontend
+                await manager.send_detection(user_id, enriched_detections)
 
             # Log progress every 30 frames
             if manager.frame_counts[user_id] % 30 == 0:
