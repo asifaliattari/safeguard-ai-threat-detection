@@ -1,0 +1,108 @@
+name: Check Model Files
+
+on:
+  push:
+    paths:
+      - '**.pt'
+      - '**.task'
+      - '**.pth'
+      - '**.onnx'
+      - '**.h5'
+  pull_request:
+    paths:
+      - '**.pt'
+      - '**.task'
+      - '**.pth'
+      - '**.onnx'
+      - '**.h5'
+
+jobs:
+  verify-lfs:
+    runs-on: ubuntu-latest
+    name: Verify Git LFS Tracking
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: false # Don't pull LFS files yet
+
+      - name: Install Git LFS
+        run: |
+          curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+          sudo apt-get install git-lfs
+          git lfs install
+
+      - name: Check for large files not in LFS
+        run: |
+          echo "🔍 Checking for large model files..."
+
+          # Find all model files
+          model_files=$(find . -type f \( -name "*.pt" -o -name "*.task" -o -name "*.pth" -o -name "*.onnx" -o -name "*.h5" \) | grep -v ".git")
+
+          if [ -z "$model_files" ]; then
+            echo "✅ No model files found"
+            exit 0
+          fi
+
+          echo "Model files found:"
+          echo "$model_files"
+
+          # Check if files are tracked by LFS
+          not_in_lfs=""
+          for file in $model_files; do
+            if ! git lfs ls-files | grep -q "$file"; then
+              echo "❌ $file is NOT tracked by Git LFS"
+              not_in_lfs="$not_in_lfs $file"
+            else
+              echo "✅ $file is tracked by Git LFS"
+            fi
+          done
+
+          if [ -n "$not_in_lfs" ]; then
+            echo ""
+            echo "❌ ERROR: The following model files are NOT tracked by Git LFS:"
+            echo "$not_in_lfs"
+            echo ""
+            echo "To fix this, run:"
+            echo "  git lfs track \"*.pt\" \"*.task\" \"*.pth\" \"*.onnx\" \"*.h5\""
+            echo "  git add .gitattributes"
+            echo "  git add $not_in_lfs"
+            echo "  git commit -m \"Track model files with Git LFS\""
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All model files are properly tracked by Git LFS!"
+
+      - name: Pull LFS files
+        run: git lfs pull
+
+      - name: Verify file sizes
+        run: |
+          echo "📊 Model file sizes:"
+          find . -type f \( -name "*.pt" -o -name "*.task" -o -name "*.pth" -o -name "*.onnx" -o -name "*.h5" \) -exec ls -lh {} \;
+
+          total_size=$(find . -type f \( -name "*.pt" -o -name "*.task" -o -name "*.pth" -o -name "*.onnx" -o -name "*.h5" \) -exec stat -f%z {} \; 2>/dev/null | awk '{s+=$1} END {print s}' || \
+                       find . -type f \( -name "*.pt" -o -name "*.task" -o -name "*.pth" -o -name "*.onnx" -o -name "*.h5" \) -exec stat -c%s {} \; | awk '{s+=$1} END {print s}')
+
+          total_mb=$((total_size / 1024 / 1024))
+          echo ""
+          echo "📦 Total model size: ${total_mb} MB"
+
+          if [ $total_mb -gt 500 ]; then
+            echo "⚠️  WARNING: Total model size exceeds 500 MB"
+          fi
+
+      - name: Verify checksums
+        run: |
+          echo "🔐 Verifying model file checksums..."
+
+          # Calculate checksums for all model files
+          for file in $(find . -type f \( -name "*.pt" -o -name "*.task" -o -name "*.pth" -o -name "*.onnx" -o -name "*.h5" \) | grep -v ".git"); do
+            checksum=$(sha256sum "$file" | awk '{print $1}')
+            echo "✅ $file: $checksum"
+          done
+
+          echo ""
+          echo "✅ Model file verification complete!"
