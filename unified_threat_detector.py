@@ -12,8 +12,10 @@ Real-time detection of:
 
 WITH AUDIO ALARM ON ALL DETECTIONS
 
-Author: SafeGuard AI
+Authors: Asif Ali & Sharmeen Asif
+GitHub: https://github.com/asifaliattari
 License: MIT
+Copyright (c) 2025 Asif Ali & Sharmeen Asif
 """
 
 import cv2

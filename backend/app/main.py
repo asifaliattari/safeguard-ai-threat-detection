@@ -2,6 +2,11 @@
 SafeGuard AI - Enhanced Backend
 Complete Humanitarian Threat Detection System
 
+Authors: Asif Ali & Sharmeen Asif
+GitHub: https://github.com/asifaliattari
+License: MIT
+Copyright (c) 2025 Asif Ali & Sharmeen Asif
+
 Features:
 - OpenCV + YOLOv8 detection
 - Activity recognition
