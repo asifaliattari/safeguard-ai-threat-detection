@@ -1,0 +1,23 @@
+# Minimal requirements for Python 3.13 (pre-built wheels only)
+
+# FastAPI & Server
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+websockets>=12.0
+
+# Computer Vision (Python 3.13 compatible)
+numpy>=2.0.0
+opencv-python-headless>=4.10.0
+pillow>=10.2.0
+
+# LLM & AI SDKs
+openai>=1.12.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.6.0
+pydantic-settings>=2.1.0
+
+# Email
+aiosmtplib>=3.0.0

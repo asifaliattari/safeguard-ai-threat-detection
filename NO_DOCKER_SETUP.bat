@@ -98,7 +98,8 @@ cd backend
 
 echo Installing backend dependencies (this may take 3-5 minutes)...
 pip install --upgrade pip >nul 2>&1
-pip install -r requirements.txt
+echo Installing minimal packages (works with Python 3.13)...
+pip install -r requirements.minimal.txt
 
 if errorlevel 1 (
     echo ERROR: Failed to install Python packages
